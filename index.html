@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple Drop</title>
+<meta name="description" content="Apple Drop: a harvest festival game of chance for the Mu Alpha Theta November 2026 challenge at Bullitt Central High School.">
+<meta name="color-scheme" content="light">
+<style>
+  :root {
+    --bg: #f7efe0;
+    --panel: #fffaf0;
+    --ink: #3b2414;
+    --muted: #6b4a33;
+    --line: #d8c3a0;
+    --barn: #9b2d20;
+    --barn-dark: #7a2016;
+    --pumpkin: #c8611a;
+    --gold: #e0a526;
+    --leaf: #4f6b2a;
+    --wood: #8a5a33;
+    --bin-a: #f3e2c4;
+    --bin-b: #ead2a8;
+    --path: #d2601a;
+    --focus: #1f4fa8;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  h1, h2, h3 { font-family: Rockwell, "Roboto Slab", "Courier New", Georgia, serif; line-height: 1.2; }
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    background: var(--barn);
+    color: #fff;
+    padding: 1.1rem 1rem 1.4rem;
+    text-align: center;
+    position: relative;
+  }
+  header::after {
+    /* bunting-style zigzag under the banner */
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: -12px; height: 12px;
+    background:
+      linear-gradient(135deg, var(--gold) 50%, transparent 50%) 0 0 / 24px 12px repeat-x,
+      linear-gradient(225deg, var(--gold) 50%, transparent 50%) 0 0 / 24px 12px repeat-x;
+  }
+  header h1 { margin: 0; font-size: clamp(2rem, 6vw, 3rem); letter-spacing: 0.04em; }
+  header .tagline { margin: 0.25rem 0 0; font-size: 1.1rem; }
+  header .event { margin: 0.35rem 0 0; font-size: 0.9rem; opacity: 0.92; }
+
+  /* ---------- Layout ---------- */
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 2rem 16px 2rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  .card {
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    padding: 1rem;
+  }
+  .board-card { border-color: var(--wood); }
+  .rules { grid-column: 1 / -1; }
+  @media (max-width: 860px) {
+    main { grid-template-columns: minmax(0, 1fr); padding-top: 1.6rem; }
+  }
+
+  #config-error {
+    grid-column: 1 / -1;
+    background: #fde8e4; border: 2px solid var(--barn); color: var(--barn-dark);
+    border-radius: 10px; padding: 0.75rem 1rem; font-weight: 600;
+  }
+  #config-error ul { margin: 0.4rem 0 0; }
+
+  /* ---------- Board ---------- */
+  #board { display: block; width: 100%; height: auto; }
+  #board .peg { fill: var(--ink); }
+  #board .peg.hit { fill: var(--pumpkin); stroke: var(--ink); stroke-width: 1.5; }
+  #board .gap { fill: none; stroke: var(--barn); stroke-width: 2.2; stroke-dasharray: 3 3; }
+  #board .wall { fill: var(--wood); stroke: var(--ink); stroke-width: 1.5; }
+  #board .wall-label { fill: var(--ink); font-size: 12px; font-weight: 700; letter-spacing: 0.15em; }
+  #board .divider { stroke: var(--wood); stroke-width: 4; stroke-linecap: round; }
+  #board .bin { stroke: none; }
+  #board .bin.flash { fill: var(--gold); }
+  #board .bin-letter { font-size: 20px; font-weight: 800; fill: var(--ink); }
+  #board .bin-value { font-size: 15px; font-weight: 700; fill: var(--ink); }
+  #board .bin-name { font-size: 10.5px; fill: var(--muted); }
+  #board .chute { fill: var(--leaf); stroke: var(--ink); stroke-width: 1.5; }
+  #board .chute.closed { fill: #b9ab95; }
+  #board .chute.selected { fill: var(--pumpkin); }
+  #board .chute-label { font-size: 11px; font-weight: 700; fill: var(--ink); }
+  #board .trail { fill: none; stroke: var(--path); stroke-width: 3; stroke-dasharray: 6 4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
+  #board .turn { font-size: 12px; font-weight: 800; fill: var(--barn-dark); }
+  #board .fade { transition: opacity 0.6s; }
+
+  .readout {
+    min-height: 3em;
+    margin: 0.75rem 0 0;
+    padding: 0.6rem 0.8rem;
+    background: #fbf1dc;
+    border-left: 5px solid var(--pumpkin);
+    border-radius: 6px;
+    font-size: 0.97rem;
+  }
+  .readout strong { color: var(--barn-dark); }
+
+  /* ---------- Controls ---------- */
+  .ticket {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: #fff3d6; border: 2px dashed var(--gold); border-radius: 10px;
+    padding: 0.55rem 0.8rem; margin-bottom: 1rem; font-size: 1.05rem;
+  }
+  .ticket .stub { font-size: 1.5rem; line-height: 1; }
+  fieldset { border: 2px solid var(--line); border-radius: 10px; margin: 0 0 1rem; padding: 0.5rem 0.8rem 0.7rem; }
+  legend { font-weight: 700; padding: 0 0.3rem; }
+  .choice-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+  .choice-row label { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; cursor: pointer; }
+  .choice-row input { width: 1.2rem; height: 1.2rem; accent-color: var(--barn); }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1rem; }
+  button {
+    font: inherit; font-weight: 700;
+    min-height: 48px; padding: 0.55rem 1.1rem;
+    border-radius: 10px; cursor: pointer;
+    border: 2px solid var(--barn-dark);
+  }
+  .btn-primary { background: var(--barn); color: #fff; font-size: 1.1rem; flex: 1 1 10rem; }
+  .btn-primary:hover:not(:disabled) { background: var(--barn-dark); }
+  .btn-secondary { background: var(--panel); color: var(--ink); border-color: var(--wood); }
+  .btn-secondary:hover:not(:disabled) { background: #f3e2c4; }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, .log-wrap:focus-visible, summary:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 2px;
+  }
+
+  h2 { font-size: 1.3rem; margin: 0 0 0.5rem; }
+  .log-wrap {
+    max-height: 340px; overflow-y: auto;
+    border: 2px solid var(--line); border-radius: 10px; background: #fff;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { padding: 0.35rem 0.6rem; text-align: left; border-bottom: 1px solid #efe2cb; }
+  th { position: sticky; top: 0; background: #f3e2c4; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); font-style: italic; margin: 0.6rem 0; }
+  .status { min-height: 1.5em; margin: 0.4rem 0 0; font-weight: 600; color: var(--leaf); }
+  #manual-copy { width: 100%; min-height: 8rem; margin-top: 0.5rem; font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; }
+
+  /* ---------- Rules ---------- */
+  .rules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem 1.5rem; }
+  .rules h3 { font-size: 1.08rem; margin: 0.2rem 0 0.35rem; color: var(--barn-dark); }
+  .rules p { margin: 0 0 0.6rem; }
+  .core-rule {
+    font-size: 1.12rem; background: #fff3d6; border: 2px solid var(--gold);
+    border-radius: 10px; padding: 0.7rem 0.9rem; margin-bottom: 1rem;
+  }
+  .legend-icon { vertical-align: middle; margin-right: 0.35rem; }
+  .prize-table td:first-child, .prize-table th:first-child { width: 3.5rem; font-weight: 800; }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 0 16px 2rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="game-name">Apple Drop</h1>
+  <p class="tagline" id="tagline"></p>
+  <p class="event" id="event-line"></p>
+</header>
+
+<main>
+  <div id="config-error" role="alert" hidden></div>
+
+  <!-- ===== Board ===== -->
+  <section class="card board-card" aria-labelledby="board-heading">
+    <h2 id="board-heading" class="visually-hidden">Game board</h2>
+    <svg id="board" role="img" aria-labelledby="board-desc" xmlns="http://www.w3.org/2000/svg">
+      <desc id="board-desc">Apple Drop board</desc>
+    </svg>
+    <p class="readout" id="readout">Press <strong>Drop 1 apple</strong> to play.</p>
+  </section>
+
+  <!-- ===== Controls and results log ===== -->
+  <section class="card" aria-labelledby="controls-heading">
+    <h2 id="controls-heading" class="visually-hidden">Controls and results</h2>
+
+    <div class="ticket"><span class="stub" aria-hidden="true">🎟️</span><span>Ticket price: <strong id="ticket-price"></strong> per drop</span></div>
+
+    <fieldset id="chute-picker" hidden>
+      <legend>Choose a chute</legend>
+      <div class="choice-row" id="chute-options"></div>
+    </fieldset>
+
+    <div class="btn-row">
+      <button type="button" class="btn-primary" id="drop-one">Drop 1 apple</button>
+      <button type="button" class="btn-primary" id="drop-batch">Drop 10</button>
+    </div>
+
+    <h2 id="log-heading">Results log</h2>
+    <div class="log-wrap" id="log-wrap" tabindex="0" role="region" aria-labelledby="log-heading">
+      <table>
+        <thead id="log-head"></thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="log-empty">No drops yet.</p>
+
+    <fieldset>
+      <legend>Copy format</legend>
+      <div class="choice-row">
+        <label><input type="radio" name="copy-format" value="tab" checked> Spreadsheet (Google Sheets, StapPlet)</label>
+        <label><input type="radio" name="copy-format" value="csv"> CSV (commas)</label>
+      </div>
+    </fieldset>
+
+    <div class="btn-row">
+      <button type="button" class="btn-secondary" id="copy">Copy results</button>
+      <button type="button" class="btn-secondary" id="reset">Reset</button>
+    </div>
+    <p class="status" id="status" aria-live="polite"></p>
+    <textarea id="manual-copy" hidden readonly aria-label="Results text to copy by hand"></textarea>
+  </section>
+
+  <!-- ===== Rules ===== -->
+  <section class="card rules" aria-labelledby="rules-heading">
+    <h2 id="rules-heading">How Apple Drop works</h2>
+    <p class="core-rule"><strong>The one rule:</strong> at every peg, the apple goes left or right with equal chance, like flipping a fair coin. That coin flip is the only thing left to chance in this game.</p>
+    <div class="rules-grid" id="rules-grid"></div>
+  </section>
+
+  <!-- Screen-reader announcements for each drop -->
+  <p class="visually-hidden" id="announce" aria-live="polite"></p>
+</main>
+
+<footer id="footer"></footer>
+
+<script>
+/* ======================================================================
+   BOARD CONFIG
+   ----------------------------------------------------------------------
+   Everything that defines a board lives here. To build a new board,
+   edit only this object; the rest of the file reads from it.
+
+   How rows and pegs are counted (used by walls and missingPegs):
+     - Rows are numbered from the top, starting at 1.
+     - Pegs in a row are numbered from the left, starting at 1.
+     - With one chute, row 1 has 1 peg, row 2 has 2 pegs, and so on
+       (minus any pegs cut off by a wall).
+   ====================================================================== */
+const BOARD_CONFIG = {
+  gameName: "Apple Drop",
+  tagline: "Step right up! Is a drop worth the ticket?",
+  eventLine: "Mu Alpha Theta · Bullitt Central High School · November 2026 Challenge",
+
+  // Number of peg rows.
+  rows: 6,
+
+  // Chutes are where apples enter the board, above row 1.
+  //   offset 0 = center, -1 = one peg to the left, +1 = one peg to the right.
+  // The board grows to cover every chute listed here.
+  chutes: [
+    { name: "Center", offset: 0 }
+  ],
+
+  // How the starting chute is picked:
+  //   "fixed"  - every apple uses the chute named in fixedChute
+  //              (any other chutes are drawn as closed).
+  //   "choice" - the player picks a chute before each drop.
+  startMode: "fixed",
+  fixedChute: "Center",
+
+  // Walls. Set a side to the row number where that wall begins, or null
+  // for no wall. The outermost peg of that row sits against the wall, and
+  // every row below it is cut off at the wall. An apple on a peg next to
+  // the wall can't go toward it, so it goes the other way (no coin flip).
+  walls: {
+    left: null,
+    right: 5
+  },
+
+  // Missing pegs, as { row, peg }. An apple that reaches a missing peg
+  // gets no bounce: it falls straight down through the gap between the
+  // two pegs below and lands on whatever sits directly under it.
+  // A missing peg can't be in the last row (it would drop onto a
+  // slot divider).
+  missingPegs: [
+    { row: 5, peg: 2 }
+  ],
+
+  // Prize slots, left to right. The page checks that the number of
+  // slots matches the board and shows a message if it doesn't.
+  slots: [
+    { letter: "A", name: "Golden Apple",  value: 100 },
+    { letter: "B", name: "Apple Pie",     value: 10 },
+    { letter: "C", name: "Bruised Apple", value: 1 },
+    { letter: "D", name: "Apple Cider",   value: 4 },
+    { letter: "E", name: "Caramel Apple", value: 10 },
+    { letter: "F", name: "Bushel Basket", value: 20 }
+  ],
+
+  // Cost of one drop, in the same unit as the prizes.
+  ticketPrice: 8,
+  unit: { one: "ticket", many: "tickets" },
+
+  // How many apples the batch button drops.
+  batchSize: 10,
+
+  // Animation speed: milliseconds per row for single and batch drops.
+  // (Animation is only for show. The result is decided by the coin
+  // flips in dropOneApple below, not by the animation.)
+  singleStepMs: 280,
+  batchStepMs: 60
+};
+/* ==================== END OF BOARD CONFIG ==================== */
+
+
+/* ----------------------------------------------------------------------
+   Board geometry
+   ----------------------------------------------------------------------
+   Internally, a position across the board is an integer "x":
+   the center chute is x = 0, and each left or right bounce moves the
+   apple 1 unit (half the distance between two pegs in the same row).
+   Pegs in row r sit at every other x value, so rows are staggered.
+   ---------------------------------------------------------------------- */
+const C = BOARD_CONFIG;
+const G = {};          // derived geometry, filled in by buildGeometry()
+
+function buildGeometry() {
+  const errors = [];
+  const rows = C.rows;
+  if (!Number.isInteger(rows) || rows < 2 || rows > 14) errors.push("rows must be a whole number from 2 to 14.");
+
+  const chuteXs = C.chutes.map(c => 2 * c.offset);
+  if (!C.chutes.length || chuteXs.some(x => !Number.isInteger(x))) errors.push("Each chute needs a whole-number offset.");
+  const minC = Math.min(...chuteXs), maxC = Math.max(...chuteXs);
+
+  // Wall bounds: the apple's x can never go past these.
+  const wallRowOk = w => w === null || (Number.isInteger(w) && w >= 1 && w <= rows);
+  if (!wallRowOk(C.walls.left) || !wallRowOk(C.walls.right)) errors.push("walls.left and walls.right must be null or a row number from 1 to " + rows + ".");
+  const leftBound  = C.walls.left  ? minC - (C.walls.left  - 1) : -Infinity;
+  const rightBound = C.walls.right ? maxC + (C.walls.right - 1) : Infinity;
+  if (rightBound - leftBound < 2) errors.push("The walls are too close together for an apple to fit.");
+
+  // Pegs in each row (x positions, left to right), trimmed by the walls.
+  const pegsByRow = [];
+  for (let r = 1; r <= rows; r++) {
+    const list = [];
+    for (let x = minC - (r - 1); x <= maxC + (r - 1); x += 2) {
+      if (x >= leftBound && x <= rightBound) list.push(x);
+    }
+    pegsByRow[r] = list;
+  }
+
+  // Missing pegs, converted from { row, peg } to x positions.
+  const missing = new Set();
+  for (const m of C.missingPegs) {
+    const list = pegsByRow[m.row];
+    if (!list || m.row >= rows) { errors.push(`Missing peg at row ${m.row} is not allowed (use rows 1 to ${rows - 1}).`); continue; }
+    if (!Number.isInteger(m.peg) || m.peg < 1 || m.peg > list.length) { errors.push(`Row ${m.row} has ${list.length} pegs, so peg ${m.peg} doesn't exist.`); continue; }
+    missing.add(m.row + "," + list[m.peg - 1]);
+  }
+
+  // Slots at the bottom: one per x position an apple can reach after the last row.
+  const slotXs = [];
+  for (let x = minC - rows; x <= maxC + rows; x += 2) {
+    if (x >= leftBound && x <= rightBound) slotXs.push(x);
+  }
+  if (slotXs.length !== C.slots.length) {
+    errors.push(`This board has ${slotXs.length} slots at the bottom, but the config lists ${C.slots.length} prizes. Add or remove prizes so they match.`);
+  }
+
+  if (C.startMode !== "fixed" && C.startMode !== "choice") errors.push('startMode must be "fixed" or "choice".');
+  if (C.startMode === "fixed" && !C.chutes.some(c => c.name === C.fixedChute)) errors.push(`fixedChute "${C.fixedChute}" doesn't match any chute name.`);
+
+  Object.assign(G, { rows, chuteXs, minC, maxC, leftBound, rightBound, pegsByRow, missing, slotXs });
+  G.isMissing = (r, x) => missing.has(r + "," + x);
+  return errors;
+}
+
+
+/* ----------------------------------------------------------------------
+   THE DROP LOGIC
+   ----------------------------------------------------------------------
+   This is the only place where chance enters the game.
+   ---------------------------------------------------------------------- */
+
+// One fair coin flip: returns -1 (left) or +1 (right), each with chance 1/2.
+// It uses the browser's cryptographic random generator: one random byte,
+// and its last bit is 0 or 1 with equal chance.
+function fairLeftOrRight() {
+  if (window.crypto && window.crypto.getRandomValues) {
+    const byte = new Uint8Array(1);
+    window.crypto.getRandomValues(byte);
+    return (byte[0] & 1) ? +1 : -1;
+  }
+  return Math.random() < 0.5 ? -1 : +1;   // fallback for very old browsers
+}
+
+// Drop one apple from the chute at position chuteX. Returns every step
+// it took and the slot it landed in. At each row:
+//   - missing peg:     no bounce; fall straight down two rows (through the gap)
+//   - peg next to a wall: forced away from the wall (no coin flip)
+//   - any other peg:   fair coin flip, left or right
+function dropOneApple(chuteX) {
+  const steps = [];
+  let x = chuteX;
+  let row = 1;
+  while (row <= G.rows) {
+    if (G.isMissing(row, x)) {
+      steps.push({ row, x, kind: "gap" });
+      row += 2;                       // passes between the two pegs in the next row
+      continue;
+    }
+    let dir, kind;
+    if (x + 1 > G.rightBound)      { dir = -1; kind = "wall"; }   // right wall: must go left
+    else if (x - 1 < G.leftBound)  { dir = +1; kind = "wall"; }   // left wall: must go right
+    else                           { dir = fairLeftOrRight(); kind = "flip"; }
+    steps.push({ row, x, dir, kind });
+    x += dir;
+    row += 1;
+  }
+  return { steps, slotIndex: G.slotXs.indexOf(x) };
+}
+
+
+/* ----------------------------------------------------------------------
+   Drawing the board (SVG). Everything below is display only.
+   ---------------------------------------------------------------------- */
+const SVG_NS = "http://www.w3.org/2000/svg";
+const U = 34;           // pixels per x unit (a slot is 2 units wide)
+const RH = 50;          // pixels between rows
+const PEG_R = 5.5, APPLE_R = 9;
+const TOP = 78;         // y of row 1
+const PAD = 34;
+
+const boardSvg = document.getElementById("board");
+const layers = {};
+let L;                  // layout numbers
+
+function el(name, attrs, parent) {
+  const node = document.createElementNS(SVG_NS, name);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+const X = x => L.x0 + (x - L.minEdge) * U;
+const Y = r => TOP + (r - 1) * RH;
+
+function wrapName(name) {
+  const words = name.split(" ");
+  const lines = [""];
+  for (const w of words) {
+    const cur = lines[lines.length - 1];
+    if (cur && (cur + " " + w).length > 10 && lines.length < 2) lines.push(w);
+    else lines[lines.length - 1] = cur ? cur + " " + w : w;
+  }
+  return lines;
+}
+
+function drawBoard() {
+  const minEdge = G.slotXs[0] - 1, maxEdge = G.slotXs[G.slotXs.length - 1] + 1;
+  const dividerTop = Y(G.rows) + RH * 0.55;
+  const binBottom = dividerTop + 112;
+  L = { minEdge, x0: PAD, dividerTop, binBottom, landY: dividerTop + 14 };
+  const width = (maxEdge - minEdge) * U + PAD * 2;
+  const height = binBottom + 14;
+  boardSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  // background panel
+  el("rect", { x: 4, y: 4, width: width - 8, height: height - 8, rx: 16, fill: "#fdf3df", stroke: "#d8c3a0", "stroke-width": 2 }, boardSvg);
+
+  layers.bins = el("g", {}, boardSvg);
+  layers.trail = el("g", { class: "fade" }, boardSvg);
+  layers.static = el("g", {}, boardSvg);
+  layers.marks = el("g", { class: "fade" }, boardSvg);
+  layers.apple = el("g", {}, boardSvg);
+
+  // prize bins
+  layers.binRects = [];
+  G.slotXs.forEach((sx, i) => {
+    const slot = C.slots[i] || { letter: "?", name: "", value: 0 };
+    const x1 = X(sx - 1), x2 = X(sx + 1), cx = X(sx);
+    const bin = el("rect", { class: "bin", x: x1, y: dividerTop, width: x2 - x1, height: binBottom - dividerTop, fill: i % 2 ? "var(--bin-b)" : "var(--bin-a)" }, layers.bins);
+    layers.binRects.push(bin);
+    const t = el("text", { class: "bin-letter", x: cx, y: dividerTop + 50, "text-anchor": "middle" }, layers.bins);
+    t.textContent = slot.letter;
+    const v = el("text", { class: "bin-value", x: cx, y: dividerTop + 70, "text-anchor": "middle" }, layers.bins);
+    v.textContent = slot.value;
+    wrapName(slot.name).forEach((line, j) => {
+      const n = el("text", { class: "bin-name", x: cx, y: dividerTop + 88 + j * 12, "text-anchor": "middle" }, layers.bins);
+      n.textContent = line;
+    });
+  });
+  // bin dividers
+  for (let i = 0; i <= G.slotXs.length; i++) {
+    const dx = X((G.slotXs[0] - 1) + 2 * i);
+    el("line", { class: "divider", x1: dx, y1: dividerTop, x2: dx, y2: binBottom }, layers.static);
+  }
+  el("line", { class: "divider", x1: X(minEdge), y1: binBottom, x2: X(maxEdge), y2: binBottom }, layers.static);
+
+  // walls
+  const drawWall = (side, wallRow) => {
+    const wx = side === "right" ? X(G.rightBound + 1) : X(G.leftBound - 1);
+    const y1 = Y(wallRow) - RH * 0.6;
+    el("rect", { class: "wall", x: wx - 5, y: y1, width: 10, height: binBottom - y1, rx: 3 }, layers.static);
+    const lx = side === "right" ? wx + 16 : wx - 16;
+    const ly = (y1 + dividerTop) / 2;
+    const label = el("text", { class: "wall-label", x: lx, y: ly, "text-anchor": "middle", transform: `rotate(${side === "right" ? 90 : -90} ${lx} ${ly})` }, layers.static);
+    label.textContent = "WALL";
+  };
+  if (C.walls.left)  drawWall("left", C.walls.left);
+  if (C.walls.right) drawWall("right", C.walls.right);
+
+  // pegs and missing pegs
+  layers.pegs = {};
+  for (let r = 1; r <= G.rows; r++) {
+    for (const x of G.pegsByRow[r]) {
+      if (G.isMissing(r, x)) {
+        el("circle", { class: "gap", cx: X(x), cy: Y(r), r: 7.5 }, layers.static);
+      } else {
+        layers.pegs[r + "," + x] = el("circle", { class: "peg", cx: X(x), cy: Y(r), r: PEG_R }, layers.static);
+      }
+    }
+  }
+
+  // chutes
+  layers.chutes = [];
+  C.chutes.forEach((c, i) => {
+    const cx = X(G.chuteXs[i]);
+    const yTop = 20, yBot = Y(1) - PEG_R - APPLE_R * 2 - 6;
+    const shape = el("polygon", { class: "chute", points: `${cx - 20},${yTop} ${cx + 20},${yTop} ${cx + 9},${yBot} ${cx - 9},${yBot}` }, layers.static);
+    layers.chutes.push(shape);
+    if (C.chutes.length > 1) {
+      const t = el("text", { class: "chute-label", x: cx, y: yTop - 5, "text-anchor": "middle" }, layers.static);
+      t.textContent = c.name;
+    }
+  });
+
+  // the apple
+  layers.appleBody = el("g", { transform: "translate(-100,-100)", "aria-hidden": "true" }, layers.apple);
+  el("path", { d: "M0,-7 C-1,-11 1,-13 2,-14", stroke: "#4a2c1a", "stroke-width": 2, fill: "none" }, layers.appleBody);
+  el("ellipse", { cx: 4.5, cy: -11.5, rx: 4, ry: 2, fill: "#4f6b2a", transform: "rotate(-25 4.5 -11.5)" }, layers.appleBody);
+  el("circle", { r: APPLE_R, fill: "#c0392b", stroke: "#6e1a10", "stroke-width": 1.5 }, layers.appleBody);
+  el("circle", { cx: -3, cy: -3, r: 2.4, fill: "#fff", opacity: 0.5 }, layers.appleBody);
+
+  document.getElementById("board-desc").textContent = describeBoard();
+}
+
+function placeApple(x, y) { layers.appleBody.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)})`); }
+
+function updateChuteStyles() {
+  const current = currentChuteIndex();
+  layers.chutes.forEach((shape, i) => {
+    shape.classList.toggle("selected", C.chutes.length > 1 && i === current);
+    shape.classList.toggle("closed", C.startMode === "fixed" && i !== current);
+  });
+}
+
+
+/* ----------------------------------------------------------------------
+   Animation (cosmetic: it replays steps that were already decided)
+   ---------------------------------------------------------------------- */
+function waypoints(chuteX, result) {
+  const pts = [{ x: X(chuteX), y: 26 }];
+  const onPeg = (r, x) => ({ x: X(x), y: Y(r) - PEG_R - APPLE_R + 1 });
+  for (const s of result.steps) {
+    if (s.kind === "gap") {
+      pts.push({ x: X(s.x), y: Y(s.row), dur: 0.8 });
+    } else {
+      pts.push({ ...onPeg(s.row, s.x), dur: 1 });
+      if (s.kind === "wall") {
+        // bump against the wall before heading the other way
+        const wallX = s.dir < 0 ? X(G.rightBound + 1) - 5 - APPLE_R : X(G.leftBound - 1) + 5 + APPLE_R;
+        pts.push({ x: wallX, y: Y(s.row) + RH * 0.2, dur: 0.5, hop: 6 });
+      }
+    }
+  }
+  const slotX = G.slotXs[result.slotIndex];
+  pts.push({ x: X(slotX), y: L.dividerTop - 4, dur: 1, hop: 8 });
+  pts.push({ x: X(slotX), y: L.landY, dur: 0.4 });
+  // mark hops for normal bounces off a peg
+  for (let i = 1; i < pts.length; i++) if (pts[i].hop === undefined) pts[i].hop = (pts[i].x !== pts[i - 1].x) ? 10 : 0;
+  return pts;
+}
+
+function animate(pts, stepMs) {
+  return new Promise(resolve => {
+    if (stepMs <= 0) { placeApple(pts[pts.length - 1].x, pts[pts.length - 1].y); resolve(); return; }
+    let i = 0, segStart = null;
+    function frame(ts) {
+      if (segStart === null) segStart = ts;
+      const a = pts[i], b = pts[i + 1];
+      const t = Math.min(1, (ts - segStart) / (stepMs * (b.dur || 1)));
+      placeApple(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t - b.hop * 4 * t * (1 - t));
+      if (t >= 1) {
+        i++; segStart = ts;
+        if (i >= pts.length - 1) { resolve(); return; }
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+let clearTimer = null;
+function clearTrail() {
+  clearTimeout(clearTimer);
+  layers.trail.replaceChildren();
+  layers.marks.replaceChildren();
+  layers.trail.style.opacity = layers.marks.style.opacity = 1;
+  for (const k in layers.pegs) layers.pegs[k].classList.remove("hit");
+  layers.binRects.forEach(b => b.classList.remove("flash"));
+}
+
+// Highlight the path: the trail, each peg hit, and an L or R at each bounce.
+function showTrail(pts, result, fadeAfterMs) {
+  el("polyline", { class: "trail", points: pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") }, layers.trail);
+  for (const s of result.steps) {
+    if (s.kind === "gap") continue;
+    const peg = layers.pegs[s.row + "," + s.x];
+    if (peg) peg.classList.add("hit");
+    const t = el("text", { class: "turn", x: X(s.x) + (s.dir < 0 ? -15 : 15), y: Y(s.row) + 15, "text-anchor": "middle" }, layers.marks);
+    t.textContent = s.dir < 0 ? "L" : "R";
+  }
+  layers.binRects[result.slotIndex].classList.add("flash");
+  clearTimer = setTimeout(() => {
+    layers.trail.style.opacity = layers.marks.style.opacity = 0;
+    setTimeout(clearTrail, 650);
+  }, fadeAfterMs);
+}
+
+function describePath(result) {
+  return result.steps.map(s => {
+    if (s.kind === "gap") return `row ${s.row}: missing peg, fell straight down`;
+    const d = s.dir < 0 ? "left" : "right";
+    return s.kind === "wall" ? `row ${s.row}: ${d} (wall)` : `row ${s.row}: ${d}`;
+  }).join(" · ");
+}
+
+
+/* ----------------------------------------------------------------------
+   Results log, copy, reset
+   ---------------------------------------------------------------------- */
+const log = [];   // { n, chute, slotIndex }
+let busy = false;
+const $ = id => document.getElementById(id);
+const unitText = n => `${n} ${n === 1 ? C.unit.one : C.unit.many}`;
+const showChuteColumn = () => C.chutes.length > 1;
+
+function currentChuteIndex() {
+  if (C.startMode === "fixed") return C.chutes.findIndex(c => c.name === C.fixedChute);
+  const picked = document.querySelector('input[name="chute"]:checked');
+  return picked ? Number(picked.value) : 0;
+}
+
+function renderLogHead() {
+  $("log-head").innerHTML = "<tr><th scope='col' class='num'>Drop</th>" +
+    (showChuteColumn() ? "<th scope='col'>Chute</th>" : "") +
+    "<th scope='col'>Slot</th><th scope='col'>Prize</th><th scope='col' class='num'>" +
+    capitalize(C.unit.many) + " won</th></tr>";
+}
+const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+function addLogRow(entry) {
+  const slot = C.slots[entry.slotIndex];
+  const tr = document.createElement("tr");
+  const cells = [[entry.n, "num"]];
+  if (showChuteColumn()) cells.push([C.chutes[entry.chute].name]);
+  cells.push([slot.letter], [slot.name], [slot.value, "num"]);
+  for (const [text, cls] of cells) {
+    const td = document.createElement("td");
+    td.textContent = text;
+    if (cls) td.className = cls;
+    tr.appendChild(td);
+  }
+  $("log-body").appendChild(tr);
+  $("log-empty").hidden = true;
+  $("log-heading").textContent = `Results log (${log.length} ${log.length === 1 ? "drop" : "drops"})`;
+  const wrap = $("log-wrap");
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function runDrops(count) {
+  if (busy) return;
+  busy = true;
+  setButtons();
+  $("status").textContent = "";
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const stepMs = reduceMotion ? 0 : (count === 1 ? C.singleStepMs : C.batchStepMs);
+  const chute = currentChuteIndex();
+  const firstN = log.length + 1;
+  let entry, result;
+  for (let k = 0; k < count; k++) {
+    clearTrail();
+    result = dropOneApple(G.chuteXs[chute]);          // outcome decided here
+    const pts = waypoints(G.chuteXs[chute], result);
+    await animate(pts, stepMs);                       // then replayed on screen
+    entry = { n: log.length + 1, chute, slotIndex: result.slotIndex };
+    log.push(entry);
+    addLogRow(entry);
+    showReadout(entry, result);
+    showTrail(pts, result, count === 1 ? 3500 : (k === count - 1 ? 3500 : 10000));
+  }
+  const slot = C.slots[entry.slotIndex];
+  $("announce").textContent = count === 1
+    ? `Drop ${entry.n}: slot ${slot.letter}, ${slot.name}, ${unitText(slot.value)}.`
+    : `Drops ${firstN} to ${entry.n} added to the log. Last apple landed in slot ${slot.letter}.`;
+  busy = false;
+  setButtons();
+}
+
+function showReadout(entry, result) {
+  const slot = C.slots[entry.slotIndex];
+  $("readout").innerHTML = "";
+  const b = document.createElement("strong");
+  b.textContent = `Drop ${entry.n}: slot ${slot.letter}, ${slot.name}, ${unitText(slot.value)}.`;
+  $("readout").append(b, document.createElement("br"), "Path: " + describePath(result));
+}
+
+function setButtons() {
+  $("drop-one").disabled = busy;
+  $("drop-batch").disabled = busy;
+  $("reset").disabled = busy;
+  document.querySelectorAll('input[name="chute"]').forEach(r => r.disabled = busy);
+}
+
+function resultsText(format) {
+  const sep = format === "csv" ? "," : "\t";
+  const cell = v => {
+    const s = String(v);
+    return format === "csv" && /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = ["Drop"];
+  if (showChuteColumn()) header.push("Chute");
+  header.push("Slot", "Prize", capitalize(C.unit.many) + " won");
+  const lines = [header.map(cell).join(sep)];
+  for (const e of log) {
+    const slot = C.slots[e.slotIndex];
+    const row = [e.n];
+    if (showChuteColumn()) row.push(C.chutes[e.chute].name);
+    row.push(slot.letter, slot.name, slot.value);
+    lines.push(row.map(cell).join(sep));
+  }
+  return lines.join("\n");
+}
+
+async function copyResults() {
+  if (!log.length) { $("status").textContent = "Nothing to copy yet. Drop some apples first."; return; }
+  const format = document.querySelector('input[name="copy-format"]:checked').value;
+  const text = resultsText(format);
+  const done = () => {
+    $("manual-copy").hidden = true;
+    $("status").textContent = `Copied ${log.length} ${log.length === 1 ? "drop" : "drops"}. Paste into Google Sheets, Google Docs, or StapPlet.`;
+  };
+  try {
+    await navigator.clipboard.writeText(text);
+    done();
+  } catch (err) {
+    // Older browsers: copy from a temporary text box.
+    const box = $("manual-copy");
+    box.value = text;
+    box.hidden = false;
+    box.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    if (ok) done();
+    else $("status").textContent = "Your browser blocked copying. The results are selected in the box below: press Ctrl+C (or Cmd+C) to copy.";
+  }
+}
+
+function resetLog() {
+  if (log.length && !window.confirm(`Clear all ${log.length} drops from the log? This can't be undone.`)) return;
+  log.length = 0;
+  $("log-body").replaceChildren();
+  $("log-empty").hidden = false;
+  $("log-heading").textContent = "Results log";
+  $("manual-copy").hidden = true;
+  clearTrail();
+  placeApple(-100, -100);
+  $("readout").innerHTML = "Log cleared. Press <strong>Drop 1 apple</strong> to play.";
+  $("status").textContent = "Log cleared.";
+}
+
+
+/* ----------------------------------------------------------------------
+   Rules panel and page text (built from the config)
+   ---------------------------------------------------------------------- */
+function describeBoard() {
+  const parts = [`${C.gameName} board with ${G.rows} rows of pegs and ${G.slotXs.length} prize slots, lettered ${C.slots[0].letter} to ${C.slots[C.slots.length - 1].letter}.`];
+  if (C.walls.left)  parts.push(`A wall runs down the left edge starting at row ${C.walls.left}.`);
+  if (C.walls.right) parts.push(`A wall runs down the right edge starting at row ${C.walls.right}.`);
+  for (const m of C.missingPegs) parts.push(`Missing peg at row ${m.row}, peg ${m.peg} from the left.`);
+  C.slots.forEach(s => parts.push(`Slot ${s.letter}: ${s.name}, ${unitText(s.value)}.`));
+  return parts.join(" ");
+}
+
+function startRuleText() {
+  if (C.startMode === "choice") return "Before each drop, choose a chute. The apple enters the board through that chute.";
+  if (C.chutes.length > 1) return `Every apple enters through the ${C.fixedChute} chute. The other chutes are closed.`;
+  return "Every apple starts at the top peg.";
+}
+
+function buildRules() {
+  const grid = $("rules-grid");
+  const block = (title, html) => {
+    const div = document.createElement("div");
+    div.innerHTML = `<h3>${title}</h3>${html}`;
+    grid.appendChild(div);
+  };
+  const pegIcon = `<svg class="legend-icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5.5" fill="#3b2414"/></svg>`;
+  const gapIcon = `<svg class="legend-icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="#9b2d20" stroke-width="2.2" stroke-dasharray="3 3"/></svg>`;
+  const wallIcon = `<svg class="legend-icon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="1" width="8" height="18" rx="2" fill="#8a5a33" stroke="#3b2414" stroke-width="1.5"/></svg>`;
+
+  block("How to play",
+    `<p>Each drop costs <strong>${unitText(C.ticketPrice)}</strong>. ${startRuleText()} ` +
+    `It bounces down ${G.rows} rows of pegs and lands in one of the ${G.slotXs.length} slots at the bottom. You win the prize in that slot.</p>` +
+    `<p>After each drop, the apple's path stays on the board for a moment. An <strong>L</strong> or <strong>R</strong> beside a peg shows which way it went.</p>`);
+
+  const wallLines = [];
+  if (C.walls.left)  wallLines.push(`the <strong>left</strong> edge, starting at row ${C.walls.left}`);
+  if (C.walls.right) wallLines.push(`the <strong>right</strong> edge, starting at row ${C.walls.right}`);
+  block(`${wallIcon}Walls`,
+    (wallLines.length ? `<p>This board has a wall on ${wallLines.join(" and ")} (rows are counted from the top).</p>` : "<p>This board has no walls.</p>") +
+    `<p>A wall keeps the apple on the board. When the apple hits a peg right next to a wall, it can't go toward the wall, so it goes the other way. No coin flip happens at that peg.</p>`);
+
+  const gapLines = C.missingPegs.map(m => `row ${m.row}, peg ${m.peg} from the left`);
+  block(`${gapIcon}Missing pegs`,
+    (gapLines.length ? `<p>A dashed ring marks a missing peg. This board is missing the peg at ${gapLines.join("; ")}.</p>` : "<p>This board has no missing pegs.</p>") +
+    `<p>With no peg to hit, the apple doesn't bounce. It falls straight down through the gap between the two pegs below and lands on whatever sits directly underneath.</p>` +
+    `<p>${pegIcon}A solid dot is a normal peg.</p>`);
+
+  let rows = C.slots.map(s => `<tr><td>${s.letter}</td><td>${s.name}</td><td class="num">${s.value}</td></tr>`).join("");
+  block("Prizes",
+    `<table class="prize-table"><thead><tr><th scope="col">Slot</th><th scope="col">Prize</th><th scope="col" class="num">${capitalize(C.unit.many)}</th></tr></thead><tbody>${rows}</tbody></table>` +
+    `<p style="margin-top:0.6rem">Ticket price: <strong>${unitText(C.ticketPrice)}</strong> per drop.</p>`);
+
+  block("Check the code",
+    `<p>This page has no hidden settings. Every drop uses the rule above: a fair coin flip at each peg, except at walls and missing pegs. ` +
+    `The animation only replays flips that were already made. To see for yourself, view the page source and find <code>dropOneApple</code>.</p>` +
+    `<p>Nothing you do here is saved or sent anywhere. Refreshing the page clears the log, so copy your results first.</p>`);
+}
+
+function buildChutePicker() {
+  if (C.startMode !== "choice") return;
+  $("chute-picker").hidden = false;
+  const box = $("chute-options");
+  C.chutes.forEach((c, i) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio"; input.name = "chute"; input.value = i;
+    if (i === Math.max(0, C.chutes.findIndex(k => k.name === C.fixedChute))) input.checked = true;
+    input.addEventListener("change", updateChuteStyles);
+    label.append(input, " " + c.name);
+    box.appendChild(label);
+  });
+}
+
+
+/* ----------------------------------------------------------------------
+   Start up
+   ---------------------------------------------------------------------- */
+(function init() {
+  $("game-name").textContent = C.gameName;
+  document.title = C.gameName;
+  $("tagline").textContent = C.tagline;
+  $("event-line").textContent = C.eventLine;
+  $("footer").textContent = `${C.gameName} · ${C.eventLine}`;
+  $("ticket-price").textContent = unitText(C.ticketPrice);
+  $("drop-batch").textContent = `Drop ${C.batchSize}`;
+
+  const errors = buildGeometry();
+  if (errors.length) {
+    const box = $("config-error");
+    box.hidden = false;
+    box.innerHTML = "Board config problem (fix BOARD_CONFIG at the top of index.html):<ul>" +
+      errors.map(e => `<li>${e.replace(/</g, "&lt;")}</li>`).join("") + "</ul>";
+    $("drop-one").disabled = $("drop-batch").disabled = true;
+    return;
+  }
+
+  drawBoard();
+  buildChutePicker();
+  updateChuteStyles();
+  renderLogHead();
+  buildRules();
+
+  $("drop-one").addEventListener("click", () => runDrops(1));
+  $("drop-batch").addEventListener("click", () => runDrops(C.batchSize));
+  $("copy").addEventListener("click", copyResults);
+  $("reset").addEventListener("click", resetLog);
+})();
+</script>
+</body>
+</html>
