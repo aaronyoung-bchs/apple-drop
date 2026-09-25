@@ -854,7 +854,7 @@ function buildRules() {
   block("Check the code",
     `<p>This page has no hidden settings. Every drop uses the rule above: a fair coin flip at each peg, except at walls and missing pegs. ` +
     `The animation only replays flips that were already made. To see for yourself, view the page source and find <code>dropOneApple</code>.</p>` +
-    `<p>Nothing you do here is saved or sent anywhere. Refreshing the page clears the log, so copy your results first.</p>`);
+    `<p>Nothing you do here is saved or sent anywhere. Refreshing or closing the page clears the log (your browser will ask first), so copy your results before you leave.</p>`);
 }
 
 function buildChutePicker() {
@@ -905,6 +905,14 @@ function buildChutePicker() {
   $("drop-batch").addEventListener("click", () => runDrops(C.batchSize));
   $("copy").addEventListener("click", copyResults);
   $("reset").addEventListener("click", resetLog);
+
+  // Ask the browser to warn before a refresh or close would wipe the log.
+  // (Browsers show their own generic message; custom text is ignored.)
+  window.addEventListener("beforeunload", event => {
+    if (!log.length) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
 })();
 </script>
 </body>
