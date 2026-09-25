@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Apple Drop</title>
-<meta name="description" content="Apple Drop: a harvest festival game of chance for the Mu Alpha Theta November 2026 challenge at Bullitt Central High School.">
+<meta name="description" content="Apple Drop: a harvest festival game of chance. Is a drop worth the ticket?">
 <meta name="color-scheme" content="light">
 <style>
   :root {
@@ -58,7 +58,6 @@
   }
   header h1 { margin: 0; font-size: clamp(2rem, 6vw, 3rem); letter-spacing: 0.04em; }
   header .tagline { margin: 0.25rem 0 0; font-size: 1.1rem; }
-  header .event { margin: 0.35rem 0 0; font-size: 0.9rem; opacity: 0.92; }
 
   /* ---------- Layout ---------- */
   main {
@@ -152,16 +151,15 @@
 
   h2 { font-size: 1.3rem; margin: 0 0 0.5rem; }
   .log-wrap {
-    max-height: 340px; overflow-y: auto;
+    max-height: 340px; overflow-y: auto; margin-bottom: 0.9rem;
     border: 2px solid var(--line); border-radius: 10px; background: #fff;
   }
   table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
   th, td { padding: 0.35rem 0.6rem; text-align: left; border-bottom: 1px solid #efe2cb; }
   th { position: sticky; top: 0; background: #f3e2c4; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .empty { color: var(--muted); font-style: italic; margin: 0.6rem 0; }
+  .empty { color: var(--muted); font-style: italic; margin: -0.3rem 0 0.9rem; }
   .status { min-height: 1.5em; margin: 0.4rem 0 0; font-weight: 600; color: var(--leaf); }
-  #manual-copy { width: 100%; min-height: 8rem; margin-top: 0.5rem; font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; }
 
   /* ---------- Rules ---------- */
   .rules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem 1.5rem; }
@@ -181,7 +179,6 @@
 <header>
   <h1 id="game-name">Apple Drop</h1>
   <p class="tagline" id="tagline"></p>
-  <p class="event" id="event-line"></p>
 </header>
 
 <main>
@@ -221,20 +218,11 @@
     </div>
     <p class="empty" id="log-empty">No drops yet.</p>
 
-    <fieldset>
-      <legend>Copy format</legend>
-      <div class="choice-row">
-        <label><input type="radio" name="copy-format" value="tab" checked> Spreadsheet (Google Sheets, StapPlet)</label>
-        <label><input type="radio" name="copy-format" value="csv"> CSV (commas)</label>
-      </div>
-    </fieldset>
-
     <div class="btn-row">
-      <button type="button" class="btn-secondary" id="copy">Copy results</button>
+      <button type="button" class="btn-secondary" id="download">Download results (.csv)</button>
       <button type="button" class="btn-secondary" id="reset">Reset</button>
     </div>
     <p class="status" id="status" aria-live="polite"></p>
-    <textarea id="manual-copy" hidden readonly aria-label="Results text to copy by hand"></textarea>
   </section>
 
   <!-- ===== Rules ===== -->
@@ -264,7 +252,6 @@
 const BOARD_CONFIG = {
   gameName: "Apple Drop",
   tagline: "Step right up! Is a drop worth the ticket?",
-  eventLine: "Mu Alpha Theta · Bullitt Central High School · November 2026 Challenge",
 
   // Number of peg rows.
   rows: 6,
@@ -653,7 +640,7 @@ function describePath(result) {
 
 
 /* ----------------------------------------------------------------------
-   Results log, copy, reset
+   Results log, CSV download, reset
    ---------------------------------------------------------------------- */
 const log = [];   // { n, chute, slotIndex }
 let busy = false;
@@ -738,48 +725,43 @@ function setButtons() {
   document.querySelectorAll('input[name="chute"]').forEach(r => r.disabled = busy);
 }
 
-function resultsText(format) {
-  const sep = format === "csv" ? "," : "\t";
+// Build the log as CSV text: one header row, then one row per drop.
+function resultsCsv() {
   const cell = v => {
     const s = String(v);
-    return format === "csv" && /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = ["Drop"];
   if (showChuteColumn()) header.push("Chute");
   header.push("Slot", "Prize", capitalize(C.unit.many) + " won");
-  const lines = [header.map(cell).join(sep)];
+  const lines = [header.map(cell).join(",")];
   for (const e of log) {
     const slot = C.slots[e.slotIndex];
     const row = [e.n];
     if (showChuteColumn()) row.push(C.chutes[e.chute].name);
     row.push(slot.letter, slot.name, slot.value);
-    lines.push(row.map(cell).join(sep));
+    lines.push(row.map(cell).join(","));
   }
-  return lines.join("\n");
+  return lines.join("\r\n") + "\r\n";
 }
 
-async function copyResults() {
-  if (!log.length) { $("status").textContent = "Nothing to copy yet. Drop some apples first."; return; }
-  const format = document.querySelector('input[name="copy-format"]:checked').value;
-  const text = resultsText(format);
-  const done = () => {
-    $("manual-copy").hidden = true;
-    $("status").textContent = `Copied ${log.length} ${log.length === 1 ? "drop" : "drops"}. Paste into Google Sheets, Google Docs, or StapPlet.`;
-  };
-  try {
-    await navigator.clipboard.writeText(text);
-    done();
-  } catch (err) {
-    // Older browsers: copy from a temporary text box.
-    const box = $("manual-copy");
-    box.value = text;
-    box.hidden = false;
-    box.select();
-    let ok = false;
-    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
-    if (ok) done();
-    else $("status").textContent = "Your browser blocked copying. The results are selected in the box below: press Ctrl+C (or Cmd+C) to copy.";
-  }
+// Save the log as a .csv file. The file is made in the browser;
+// nothing is sent anywhere.
+function downloadResults() {
+  if (!log.length) { $("status").textContent = "Nothing to download yet. Drop some apples first."; return; }
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const fileName = `${C.gameName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-results_${stamp}.csv`;
+  const url = URL.createObjectURL(new Blob([resultsCsv()], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  $("status").textContent = `Downloaded ${log.length} ${log.length === 1 ? "drop" : "drops"} as ${fileName}. Open it in Google Sheets with File → Import.`;
 }
 
 function resetLog() {
@@ -788,7 +770,6 @@ function resetLog() {
   $("log-body").replaceChildren();
   $("log-empty").hidden = false;
   $("log-heading").textContent = "Results log";
-  $("manual-copy").hidden = true;
   clearTrail();
   placeApple(-100, -100);
   $("readout").innerHTML = "Log cleared. Press <strong>Drop 1 apple</strong> to play.";
@@ -872,7 +853,6 @@ function buildChutePicker() {
   $("game-name").textContent = C.gameName;
   document.title = C.gameName;
   $("tagline").textContent = C.tagline;
-  $("event-line").textContent = C.eventLine;
   $("ticket-price").textContent = unitText(C.ticketPrice);
   $("drop-batch").textContent = `Drop ${C.batchSize}`;
 
@@ -894,7 +874,7 @@ function buildChutePicker() {
 
   $("drop-one").addEventListener("click", () => runDrops(1));
   $("drop-batch").addEventListener("click", () => runDrops(C.batchSize));
-  $("copy").addEventListener("click", copyResults);
+  $("download").addEventListener("click", downloadResults);
   $("reset").addEventListener("click", resetLog);
 
   // Ask the browser to warn before a refresh or close would wipe the log.

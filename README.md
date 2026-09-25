@@ -1,6 +1,6 @@
 # Apple Drop
 
-A harvest-festival drop game for the **Mu Alpha Theta November 2026 challenge** at Bullitt Central High School.
+A harvest-festival drop game of chance.
 
 Teams drop apples, collect data, and decide: *is a drop worth the ticket?*
 
@@ -13,7 +13,9 @@ The whole game is one self-contained file, `index.html`. It has no build step, n
 3. Under **Build and deployment**, choose **Deploy from a branch**, then pick `main` and `/ (root)`, and click **Save**.
 4. After a minute or two, the game is live at `https://<your-username>.github.io/apple-drop/`.
 
-To preview locally, just open `index.html` in a browser. Copying results needs the live `https://` page or a very recent browser, but the page has a fallback copy box if copying is blocked.
+To preview locally, just open `index.html` in a browser.
+
+**Results:** the **Download results (.csv)** button saves the log as a CSV file, such as `apple-drop-results_2026-11-03_1405.csv`. The file is made in the browser, and nothing is uploaded. To open it in Google Sheets, use **File → Import → Upload**.
 
 ## How the game works
 
